@@ -13,7 +13,7 @@ export function validateJobImport(raw:unknown):JobImport {
 }
 
 /** Replace only jobs, once per import. Preferences, profile and unrelated fields survive. */
-export function applyJobImport<T extends ImportState>(workspace:T, data:JobImport):T {
-  if (workspace.importRevision===data.revision) return workspace;
+export function applyJobImport<T extends ImportState>(workspace:T, data:JobImport, force=false):T {
+  if (!force && workspace.importRevision===data.revision) return workspace;
   return {...workspace,tracked:data.tracked,importedJobs:data.jobs,importRevision:data.revision,importSource:data.sourceName};
 }

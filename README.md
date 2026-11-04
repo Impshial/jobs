@@ -20,6 +20,8 @@ Export/import backup includes the imported catalog, tracked jobs, preferences, a
 
 ## Import a shortlist
 
+For a hosted copy, click **Import jobs** and select a Nextmove jobs JSON file. Review the counts, then choose **Replace jobs and import**. This replaces only jobs and statuses, preserving the profile, preferences, resume, and saved API key. The file is read in your browser, not uploaded to a server or committed to GitHub. Refresh and later visits use the imported catalog instead of the live feed.
+
 With Python and openpyxl installed:
 
 ```sh
@@ -29,7 +31,7 @@ python scripts/import-shortlist.py /path/to/shortlist.xlsx
 
 The importer supports the Job shortlist, Data entry, and Not shortlisted worksheets. It preserves pay units, conditions, verification dates, URLs, notes, and supplied statuses. Not started becomes Saved; excluded entries become Not Interested. Application dates are not invented.
 
-The output is `.local-runtime/imported-jobs.json`, excluded from git. Reload the local app to apply it. This replaces job data once while preserving preferences, profile, resume, and key. The previous workspace is retained in browser storage at `nextmove.workspace.v1.before-job-import`. Later status and note changes survive refresh/restart.
+The output is `.local-runtime/imported-jobs.json`, excluded from git. Reload the local app to apply it, or choose this JSON file with **Import jobs** on the hosted app. This replaces job data while preserving preferences, profile, resume, and key. The previous workspace is retained in browser storage at `nextmove.workspace.v1.before-job-import`. Later status and note changes survive refresh/restart.
 
 With an imported catalog, Refresh retains the catalog instead of refilling it with live feeds. Use the Worksheet selector to show Data Entry separately. Without an import, the app fetches Remotive and Arbeitnow. These are limited sources, not an exhaustive job search. Add any other job by URL.
 
