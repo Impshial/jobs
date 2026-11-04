@@ -1,0 +1,17 @@
+import { category, plain, safeUrl, type Job } from '../../../lib/jobs';
+type Feed = {jobs:Job[];fetchedAt:string;warnings:string[]};
+let memory:{data:Feed;expires:number}|undefined;
+let pending:Promise<Feed>|undefined;
+const SIX_HOURS=6*60*60*1000;
+function employment(v:string){return ({full_time:'Full-time',fulltime:'Full-time',part_time:'Part-time',parttime:'Part-time',contract:'Contract',freelance:'Freelance',internship:'Internship'} as Record<string,string>)[v.toLowerCase().replace(/[- ]/g,'_')]||v||'Not specified';}
+async function load():Promise<Feed>{
+  const sources=await Promise.allSettled([
+    fetch('https://remotive.com/api/remote-jobs',{signal:AbortSignal.timeout(18000),cf:{cacheTtl:21600,cacheEverything:true}}).then(async r=>{if(!r.ok)throw Error('Remotive unavailable');const d=await r.json() as {jobs:Record<string,unknown>[]};if(!Array.isArray(d.jobs))throw Error('Invalid feed');return d.jobs.map((j):Job=>({id:`remotive-${j.id}`,title:plain(String(j.title||'')),company:plain(String(j.company_name||'')),location:String(j.candidate_required_location||'Not specified'),category:category(String(j.title),String(j.category)),type:employment(String(j.job_type||'')),salary:String(j.salary||''),description:plain(String(j.description||'')),url:safeUrl(String(j.url)),source:'Remotive',posted:String(j.publication_date||''),remote:true,tags:Array.isArray(j.tags)?j.tags.map(String):[]}));}),
+    fetch('https://www.arbeitnow.com/api/job-board-api',{signal:AbortSignal.timeout(18000),cf:{cacheTtl:21600,cacheEverything:true}}).then(async r=>{if(!r.ok)throw Error('Arbeitnow unavailable');const d=await r.json() as {data:Record<string,unknown>[]};if(!Array.isArray(d.data))throw Error('Invalid feed');return d.data.map((j):Job=>({id:`arbeitnow-${j.slug}`,title:plain(String(j.title||'')),company:plain(String(j.company_name||'')),location:String(j.location||'Not specified'),category:category(String(j.title),Array.isArray(j.tags)?j.tags.join(' '):''),type:employment(Array.isArray(j.job_types)?String(j.job_types[0]||''):''),salary:'',description:plain(String(j.description||'')),url:safeUrl(String(j.url)),source:'Arbeitnow',posted:new Date(Number(j.created_at)*1000).toISOString(),remote:j.remote===true,tags:Array.isArray(j.tags)?j.tags.map(String):[]}));})
+  ]);
+  const jobs:Job[]=[];const warnings:string[]=[];
+  sources.forEach((r,i)=>{if(r.status==='fulfilled')jobs.push(...r.value.filter(j=>j.url&&j.title));else warnings.push(`${i===0?'Remotive':'Arbeitnow'} is temporarily unavailable.`);});
+  if(!jobs.length)throw Error('Job feeds are temporarily unavailable. Your saved jobs are still here. Try again shortly.');
+  const seen=new Set<string>();return {jobs:jobs.filter(j=>{const key=`${j.company}:${j.title}:${j.location}`.toLowerCase();if(seen.has(key))return false;seen.add(key);return true;}).sort((a,b)=>Date.parse(b.posted)-Date.parse(a.posted)),fetchedAt:new Date().toISOString(),warnings};
+}
+export async function GET(){try{if(memory&&memory.expires>Date.now())return Response.json(memory.data,{headers:{'Cache-Control':'private, max-age=300'}});pending??=load().finally(()=>{pending=undefined;});const data=await pending;memory={data,expires:Date.now()+SIX_HOURS};return Response.json(data,{headers:{'Cache-Control':'private, max-age=300'}});}catch(error){if(memory)return Response.json({...memory.data,warnings:['Showing the last available feed. Live sources are temporarily unavailable.']});return Response.json({error:error instanceof Error?error.message:'Unable to load jobs.'},{status:503});}}
