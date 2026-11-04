@@ -1,6 +1,8 @@
 import {z} from 'zod';
 import {ResumeSchema} from '../../../lib/resume';
 import {roleOptions} from '../../../lib/jobs';
+import {isSameOrigin} from '../../../lib/request-origin';
+export const maxDuration=120;
 const text={type:'string'};
 const list={type:'array',items:text};
 const resumeFormat={type:'object',additionalProperties:false,properties:{name:text,email:text,website:text,summary:text,skills:list,roles:{type:'array',items:{type:'string',enum:roleOptions}},searchTerms:list,experienceLevel:text,notes:text},required:['name','email','website','summary','skills','roles','searchTerms','experienceLevel','notes']};
@@ -11,7 +13,7 @@ const schema=z.discriminatedUnion('action',[
 ]);
 function reply(data:unknown,status=200){return Response.json(data,{status,headers:{'Cache-Control':'no-store'}});}
 export async function POST(request:Request){
- const origin=request.headers.get('origin');if(origin&&origin!==new URL(request.url).origin)return reply({error:'This request must come from your Nextmove app.'},403);
+ if(!isSameOrigin(request))return reply({error:'Request origin does not match this server. Reload the app at its current address.'},403);
  if(Number(request.headers.get('content-length'))>7500000)return reply({error:'Choose a résumé smaller than 5 MB.'},413);
  try{
   const raw=await request.text();if(raw.length>7500000)return reply({error:'Choose a résumé smaller than 5 MB.'},413);

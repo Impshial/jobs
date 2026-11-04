@@ -1,10 +1,11 @@
 import {build} from 'esbuild';
 import {mkdir} from 'node:fs/promises';
 import assert from 'node:assert/strict';
-await mkdir('.sites-runtime/checks',{recursive:true});
-await build({entryPoints:['lib/jobs.ts','app/api/ai/route.ts'],outdir:'.sites-runtime/checks',outbase:'.',bundle:true,platform:'node',format:'esm',logLevel:'silent',outExtension:{'.js':'.mjs'}});
-const {defaults,matches,safeUrl,salaryAnnualUSD,validateBackup,blankProfile}=await import('../.sites-runtime/checks/lib/jobs.mjs');
-const {POST}=await import('../.sites-runtime/checks/app/api/ai/route.mjs');
+await mkdir('.local-runtime/checks',{recursive:true});
+await build({entryPoints:['lib/jobs.ts','lib/workspace-import.ts','app/api/ai/route.ts'],outdir:'.local-runtime/checks',outbase:'.',bundle:true,platform:'node',format:'esm',logLevel:'silent',outExtension:{'.js':'.mjs'}});
+const {defaults,matches,safeUrl,salaryAnnualUSD,validateBackup,blankProfile}=await import('../.local-runtime/checks/lib/jobs.mjs');
+const {POST}=await import('../.local-runtime/checks/app/api/ai/route.mjs');
+const {applyJobImport,validateJobImport}=await import('../.local-runtime/checks/lib/workspace-import.mjs');
 const job={id:'job-1',title:'Software Engineer',company:'Example',location:'Worldwide',category:'Engineering',type:'Full-time',salary:'$80k - $100k',description:'Build React applications.',url:'https://example.com/careers',source:'Test',posted:'2026-11-01',remote:true,tags:['React']};
 let passed=0;function check(name,fn){fn();passed++;console.log('PASS '+name);}
 check('Filters include worldwide roles for US preferences',()=>assert.equal(matches(job,{...defaults,roles:['Engineering'],styles:['Remote'],locations:['United States']}),true));
@@ -14,10 +15,17 @@ check('Salary filtering avoids incomparable rates',()=>{assert.equal(salaryAnnua
 check('Links reject executable URLs',()=>{assert.equal(safeUrl('javascript:alert(1)'),'');assert.equal(safeUrl('data:text/html,test'),'');assert.equal(safeUrl(job.url),job.url);});
 check('Backup validation rejects malformed jobs',()=>{assert.throws(()=>validateBackup({version:1,tracked:{bad:{job:{}}},preferences:defaults,profile:blankProfile}));const data={version:1,tracked:{[job.id]:{job,stage:'Saved',notes:'hello',followUp:'',savedAt:'2026-11-01'}},preferences:defaults,profile:blankProfile};assert.equal(validateBackup(data).tracked[job.id].notes,'hello');});
 const key='sk-test-not-a-real-key';const resume={name:'Test Person',email:'',website:'',summary:'I build React applications.',skills:['React'],roles:['Engineering'],searchTerms:['React'],experienceLevel:'Mid-level',notes:''};
+const importedJob={...job,id:'imported-job',importedFrom:{sheet:'Data entry',row:6,checkedAt:'2026-11-04',priority:'Confirm Ohio'}};
+const seed={revision:'test-import',sourceName:'test.xlsx',importedAt:'2026-11-04',jobs:[importedJob],tracked:{[importedJob.id]:{job:importedJob,stage:'Applied',notes:'Check eligibility',followUp:'',savedAt:'2026-11-04'}}};
+check('Job import replaces stale jobs and preserves profile and preferences',()=>{const workspace={tracked:{old:{job,stage:'Saved',notes:'',followUp:'',savedAt:''}},preferences:{...defaults,locations:['United States']},profile:{...blankProfile,name:'Example Person'},importRevision:''};const next=applyJobImport(workspace,validateJobImport(seed));assert.equal(next.profile,workspace.profile);assert.equal(next.preferences,workspace.preferences);assert.equal(next.tracked.old,undefined);assert.equal(next.tracked[importedJob.id].stage,'Applied');assert.equal(next.tracked[importedJob.id].appliedAt,undefined);assert.equal(next.importedJobs.length,1);});
+check('Refresh does not undo later status and note changes',()=>{const next=applyJobImport({tracked:{}},seed);const edited={...next,tracked:{...next.tracked,[importedJob.id]:{...next.tracked[importedJob.id],stage:'Interviewed',notes:'Changed after import'}}};assert.equal(applyJobImport(edited,seed),edited);});
+check('Backup roundtrip includes imported catalog and excludes malformed imports',()=>{const workspace={version:1,...applyJobImport({tracked:{},profile:blankProfile,preferences:defaults},seed)};const restored=validateBackup(JSON.parse(JSON.stringify(workspace)));assert.equal(restored.importedJobs[0].importedFrom.sheet,'Data entry');assert.equal(restored.importRevision,seed.revision);assert.throws(()=>validateJobImport({...seed,jobs:[importedJob,importedJob]}));assert.throws(()=>validateBackup({...workspace,importedJobs:[{}]}));});
 const request=(body,origin='https://nextmove.test')=>new Request('https://nextmove.test/api/ai',{method:'POST',headers:{'Content-Type':'application/json',Origin:origin},body:JSON.stringify(body)});
 const realFetch=globalThis.fetch;let calls=0;let sent;
 globalThis.fetch=async(url,init)=>{calls++;assert.equal(url,'https://api.openai.com/v1/responses');assert.equal(init.headers.Authorization,`Bearer ${key}`);sent=JSON.parse(init.body);return Response.json({status:'completed',output:[{type:'message',content:[{type:'output_text',text:JSON.stringify(resume)}]}]});};
 try{
+ for(const host of ['127.0.0.1:5187','localhost:5187']){const local=new Request('http://localhost:5187/api/ai',{method:'POST',headers:{Host:host,Origin:`http://${host}`,'Content-Type':'application/json'},body:JSON.stringify({action:'resume',apiKey:''})});assert.equal((await POST(local)).status,400);}assert.equal(calls,0);passed++;console.log('PASS Local browser host aliases reach validation without calling OpenAI');
+ const otherPort=new Request('http://localhost:5187/api/ai',{method:'POST',headers:{Host:'127.0.0.1:5187',Origin:'http://127.0.0.1:9000'},body:'{}'});assert.equal((await POST(otherPort)).status,403);assert.equal(calls,0);passed++;console.log('PASS Different-port origins remain blocked');
  let r=await POST(request({action:'resume',apiKey:key,filename:'resume.txt',fileData:'data:text/plain;base64,VGVzdCByZXN1bWUgdGV4dA=='}));assert.equal(r.status,200);assert.equal((await r.json()).resume.name,'Test Person');assert.equal(sent.store,false);assert.equal(sent.model,'gpt-5-mini');assert.equal(sent.text.format.strict,true);passed++;console.log('PASS Resume upload uses structured output and disables API response storage');
  r=await POST(request({action:'resume',apiKey:key,filename:'resume.exe',fileData:'data:text/plain;base64,VGVzdCByZXN1bWUgdGV4dA=='}));assert.equal(r.status,400);assert.equal(calls,1);passed++;console.log('PASS Unsupported files rejected before sending');
  r=await POST(request({action:'resume',apiKey:''}));assert.equal(r.status,400);assert.equal(calls,1);passed++;console.log('PASS Missing credentials rejected');

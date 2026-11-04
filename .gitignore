@@ -12,6 +12,10 @@
 # Generated builds and framework state
 /dist/
 /.next/
+/.next-local/
+/.local-runtime/
+/.runtime/
+/.openai/
 /.vinext/
 /out/
 next-env.d.ts

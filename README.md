@@ -1,26 +1,63 @@
 # Nextmove
 
-A private job-search app with live listings, a preference checklist, resume-based AI search, saved jobs, and an application tracker.
+Standalone job search and application tracking with Next.js. No ChatGPT, Codex, Sites, or cloud login is required to run it.
 
-## Use
+## Run locally
 
-1. Open My checklist and enter your OpenAI key. Remembering it saves it only in this browser, separately from backups.
-2. Upload a PDF, DOCX, TXT, or Markdown resume (up to 5 MB), review the extracted profile, and choose Use this for my search.
-3. Adjust role, work style, employment, location, and salary filters. Empty sections include all options.
-4. AI rank matches compares up to 40 candidates selected by resume keyword relevance, with reasons and gaps.
-5. Save jobs, add notes and follow-up dates, and move them between stages.
-6. Prepare application creates an editable introduction. Continue to the original listing to submit; explicitly mark the job applied afterward.
+Install Node.js 22.13+ and run `npm ci` once. Double-click **Start-Nextmove.cmd**, or run `npm run local`, to open **http://127.0.0.1:5187**. Stop with **Stop-Nextmove.cmd** or `npm run local:stop`.
 
-Employer forms are not submitted automatically. Remotive supplies remote roles with a 24-hour delay; Arbeitnow mainly supplies European jobs. Feeds cache for six hours. Add any outside job by URL.
+The Windows launchers use `.runtime/node.exe` when present, otherwise an installed Node.js. The server runs independently of an editor or desktop app and listens only on 127.0.0.1. The first start builds the app. After source changes, stop it, run `npm run build:local`, and start again. Logs are in `.local-runtime/`.
+
+Imported jobs, tracking, notes, filters, and application-note templates work offline while the local server is running. Live job feeds and optional AI calls require internet. Fonts are system fonts.
 
 ## Data
 
-This Site is private. Jobs, notes, preferences, your reviewed resume profile, and an optional remembered API key live in this browser. The raw resume is not saved by the app. Export/import includes tracked jobs, preferences, and your introduction; it excludes the key and extracted resume profile. Browser storage is device-specific.
+Stages: Saved, Preparing, Applied, Not Interested, Heard From, Interviewed, No Dice.
 
-AI requests go through /api/ai to OpenAI Responses using gpt-5-mini, strict JSON schemas, and store:false. Keys are never persisted server-side or logged by application code. OpenAI retention policies and API charges apply. The endpoint validates inputs, limits file size and candidate counts, treats document text as untrusted data, rejects cross-origin requests, and returns errors without credentials. No paid request occurs until the user chooses analysis or ranking.
+Browser storage holds jobs, notes, preferences, your introduction, and your reviewed resume profile. A remembered OpenAI key is stored separately in that browser. Use the same URL each time: localhost and 127.0.0.1 have separate browser storage. The app does not retain raw resumes or save keys in server files.
 
-References: [OpenAI file inputs](https://developers.openai.com/api/docs/guides/file-inputs), [structured outputs](https://developers.openai.com/api/docs/guides/structured-outputs), [Remotive API](https://github.com/remotive-com/remote-jobs-api).
+Export/import backup includes the imported catalog, tracked jobs, preferences, and introduction. It excludes the API key and extracted resume profile. Back up before clearing browser data or switching addresses/devices. There is no account or cross-device synchronization.
+
+## Import a shortlist
+
+With Python and openpyxl installed:
+
+```sh
+python -m pip install openpyxl
+python scripts/import-shortlist.py /path/to/shortlist.xlsx
+```
+
+The importer supports the Job shortlist, Data entry, and Not shortlisted worksheets. It preserves pay units, conditions, verification dates, URLs, notes, and supplied statuses. Not started becomes Saved; excluded entries become Not Interested. Application dates are not invented.
+
+The output is `.local-runtime/imported-jobs.json`, excluded from git. Reload the local app to apply it. This replaces job data once while preserving preferences, profile, resume, and key. The previous workspace is retained in browser storage at `nextmove.workspace.v1.before-job-import`. Later status and note changes survive refresh/restart.
+
+With an imported catalog, Refresh retains the catalog instead of refilling it with live feeds. Use the Worksheet selector to show Data Entry separately. Without an import, the app fetches Remotive and Arbeitnow. These are limited sources, not an exhaustive job search. Add any other job by URL.
+
+## Optional AI and applications
+
+Enter your OpenAI API key in My checklist. Resume analysis and ranking call the OpenAI API through this app's backend using your key. There is no ChatGPT integration or session. Calls occur only when you choose Analyze resume or AI rank matches; API charges apply separately.
+
+Upload PDF, DOCX, TXT, or Markdown and review the extracted facts before using them. Ranking compares up to 40 jobs. The API uses structured output with `store:false`; application code does not log credentials and treats uploaded text as untrusted data.
+
+The app prepares an editable application note and tracks status. You complete submission on the employer's website. There is no unattended application or background automation.
+
+## Vercel
+
+Import this repository with the **Next.js** preset, root directory `.`, and build command `npm run build`. Use the default output directory. Do not set `NEXTMOVE_LOCAL` or `NEXT_PUBLIC_LOCAL_APP` on Vercel. Windows launchers are local only. `npm run build` checks the hosted build; `npm run build:local` builds the local app.
+
+Restrictions:
+
+- **Separate data:** the Vercel address gets its own browser storage. Export a backup locally and import it there; re-enter your key and resume profile if needed. Cross-device sync would require authentication and a database.
+- **Private imports stay local:** imported spreadsheet data is excluded from git and the deployment. Bring it to your own hosted browser with the app's backup import.
+- **Upload size:** Vercel Function request/response bodies are limited to 4.5 MB. Base64 adds overhead, so the hosted UI allows resumes up to 3 MB; local mode allows 5 MB.
+- **Execution:** Hobby functions allow up to 300 seconds. The AI route is configured for 120 seconds, with a 90-second OpenAI request timeout. This app does not run a persistent background worker.
+- **Access:** this app has no login. Anyone can open an unprotected deployment, but each browser has its own data and key. Configure suitable deployment protection or add authentication if hosting privately. Do not add a shared server API key without authentication and usage controls.
+- **Plan:** Hobby is limited to personal, non-commercial use and usage quotas. OpenAI charges are separate.
+
+Sources: [Vercel Function limits](https://vercel.com/docs/functions/limitations), [Vercel Hobby plan](https://vercel.com/docs/plans/hobby).
 
 ## Development
 
-Requires Node 22.13+ and npm. Run npm ci, then npm run dev -- --port 5187. Run node scripts/verify.mjs for behavior and mocked AI endpoint checks, node node_modules/typescript/bin/tsc --noEmit for type checking, and npm run build for production. Preserve .openai/hosting.json when publishing. Sites helpers own source synchronization and packaging. Local tool state and fixtures are ignored.
+`npm run dev` starts local development. `npm test` checks filters, backups, import persistence, and mocked AI requests. No paid API requests are made by tests. Run `npx tsc --noEmit` for type checking.
+
+Keep runtime binaries, imported jobs, browser backups, resumes, credentials, logs, and generated builds outside git.
