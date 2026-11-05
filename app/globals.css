@@ -41,3 +41,4 @@ body{background:var(--paper);color:var(--ink)}
 
 /* Stretch the existing, keyboard-accessible title button across the card. */
 .job-card{position:relative;isolation:isolate;cursor:pointer}.job-card .job-title::after{content:'';position:absolute;inset:0;z-index:1;border-radius:8px}.job-card .save-button,.job-card .card-bottom a,.job-card .round-link{position:relative;z-index:2}.job-card:has(.job-title:focus-visible){outline:3px solid #e8a58e;outline-offset:3px}
+.card-bottom a.job-listing-link{font-size:11px;font-weight:600;color:#edb093;margin-top:10px;text-decoration:underline;text-underline-offset:3px;max-width:100%}.card-bottom a.job-listing-link:hover{color:#ffd0b9}.card-bottom a.job-listing-link svg{flex-shrink:0}
