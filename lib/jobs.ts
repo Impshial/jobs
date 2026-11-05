@@ -7,6 +7,25 @@ export const stages: Stage[] = ['Saved','Preparing','Applied','Not Interested','
 export const defaults: Preferences = {roles:[],styles:[],types:[],locations:[],keywords:'',minimum:'',includeUnknown:true};
 export const blankProfile: Profile = {name:'',email:'',website:'',summary:''};
 export const roleOptions = ['Engineering','Design','Product','Marketing','Sales','Customer support','Data & analytics','Finance','Operations','Writing','People & HR','Other'];
+/** Display geography separately from work arrangement; retain the original for filters and backups. */
+export function jobLocation(value:string) {
+  const parts=value.split(';').map(part=>part
+    .replace(/\b(?:(?:official\s+)?indexed\s+)?description says\s*/gi,'')
+    .replace(/\bassociated with\s*/gi,'')
+    .replace(/\b(?:or\s+)?(?:(?:fully|100%|partially|mostly|listed)\s+)?(?:remote(?:ly)?|hybrid|on[- ]site)(?:\s+(?:anywhere\s+in|within|in|from))?\b/gi,'')
+    .replace(/\b(?:explicitly\s+)?eligible for W-?2\b/gi,'')
+    .replace(/\b(?:residents?|residence)\s+required\b/gi,'')
+    .replace(/\b(?:hiring eligibility|state restrictions)\s+not specified\b/gi,'')
+    .replace(/\bmetadata conflicts\b/gi,'')
+    .replace(/\bwith\s+\d+[-–]?\d*\s+trips?\/year\b/gi,'')
+    .replace(/\b(?:about\s+)?\d+%\s+travel\b|\btravel as required\b/gi,'')
+    .replace(/,?\s*despite\s+.*?\s+in title\b/gi,'')
+    .replace(/,?\s*(?:Eastern|Central|Mountain|Pacific)(?:\/(?:Eastern|Central|Mountain|Pacific))*\s+time\b/gi,'')
+    .replace(/\boffices?\b/gi,'')
+    .replace(/[()[\]]/g,' ').replace(/\s+/g,' ').replace(/^[\s,\-–—/]+|[\s,\-–—/]+$/g,'').trim()
+  ).filter(part=>part&&!/\bnot explicit\b/i.test(part)&&!/^not specified$/i.test(part));
+  return parts.join('; ')||'Location not listed';
+}
 export function safeUrl(value: string) { try { const u=new URL(value); return ['https:','http:'].includes(u.protocol) ? u.href : ''; } catch { return ''; } }
 export function plain(value: string) { return value.replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi,'').replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi,'').replace(/<\/(p|li|div|h[1-6])>/gi,'\n\n').replace(/<br\s*\/?>/gi,'\n').replace(/<[^>]+>/g,'').replace(/&nbsp;/g,' ').replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&quot;/g,'"').replace(/&#39;|&apos;/g,"'").replace(/&#(\d+);/g,(_,n)=>String.fromCharCode(Number(n))).trim(); }
 export function category(title: string, original: string) { const t=`${title} ${original}`.toLowerCase(); if(/design|ux|ui\b/.test(t))return 'Design'; if(/data|analyt|machine learning/.test(t))return 'Data & analytics'; if(/engineer|developer|software|devops|qa\b|technical/.test(t))return 'Engineering'; if(/product|project manager/.test(t))return 'Product'; if(/marketing|seo|social media/.test(t))return 'Marketing'; if(/sales|account executive|business development/.test(t))return 'Sales'; if(/support|customer|success/.test(t))return 'Customer support'; if(/financ|accountant|bookkeep/.test(t))return 'Finance'; if(/writer|writing|copy|editor/.test(t))return 'Writing'; if(/recruit|human resource|hr\b|people/.test(t))return 'People & HR'; if(/operation|admin|assistant/.test(t))return 'Operations'; return 'Other'; }
