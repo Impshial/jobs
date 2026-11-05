@@ -1,5 +1,5 @@
 import {build} from 'esbuild';
-import {readFile,mkdir,unlink} from 'node:fs/promises';
+import {readFile,readdir,mkdir,unlink} from 'node:fs/promises';
 import {randomUUID} from 'node:crypto';
 import assert from 'node:assert/strict';
 import {PGlite} from '@electric-sql/pglite';
@@ -95,7 +95,7 @@ const alice='11111111-1111-4111-8111-111111111111';
 const bob='22222222-2222-4222-8222-222222222222';
 try{
   await pg.exec(`create role anon; create role authenticated; create schema auth; create table auth.users(id uuid primary key); insert into auth.users values('${alice}'),('${bob}'); create function auth.uid() returns uuid language sql stable as $$ select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid $$; grant usage on schema auth to anon,authenticated; grant execute on function auth.uid() to anon,authenticated;`);
-  await pg.exec(await readFile('supabase/migrations/202611040001_workspaces.sql','utf8'));
+  for(const file of (await readdir('supabase/migrations')).filter(file=>file.endsWith('.sql')).sort())await pg.exec(await readFile(`supabase/migrations/${file}`,'utf8'));
   await check('Only the private helper has elevated privileges',async()=>{
     const rows=(await pg.query("select n.nspname, p.prosecdef from pg_proc p join pg_namespace n on n.oid=p.pronamespace where p.proname='save_workspace' order by n.nspname")).rows;
     assert.deepEqual(rows,[{nspname:'nextmove_private',prosecdef:true},{nspname:'public',prosecdef:false}]);
@@ -127,6 +127,24 @@ try{
     await assert.rejects(()=>save({...base,apiKey:'not-allowed'},2),e=>e.code==='22023');
     await assert.rejects(()=>save({version:1},2),e=>e.code==='22023');
     await assert.rejects(()=>save(base,-1),e=>e.code==='22023');
+  });
+  await check('Search history survives saves from older browser tabs and keeps Applied jobs',async()=>{
+    await asUser('authenticated',alice);
+    const row=(await pg.query('select document,revision from public.workspaces')).rows[0];
+    const search={id:'search-1',query:'Data entry',createdAt:'2026-11-05T12:00:00.000Z',fetchedAt:'2026-11-05T12:00:00.000Z',terms:['Data entry'],sources:['Test'],warnings:[],total:1,preferences:base.preferences,results:[{job:fixtureJob,score:6,matchedTerms:['Data entry']}]};
+    const résumé={id:'resume-1',label:'Developer',profile:{name:'',email:'',website:'',summary:'',skills:['C#'],roles:[],searchTerms:[],experienceLevel:'',notes:''},sourceName:'',createdAt:'2026-11-05T12:00:00.000Z',updatedAt:'2026-11-05T12:00:00.000Z'};
+    const document=parseWorkspace({...row.document,searches:[search],resumes:[résumé],selectedResumeId:résumé.id});
+    let saved=await save(document,Number(row.revision));
+    const legacy={...saved.document};delete legacy.searches;delete legacy.resumes;delete legacy.selectedResumeId;
+    saved=await save(legacy,Number(saved.revision));
+    assert.deepEqual(saved.document.searches,[search]);assert.deepEqual(saved.document.resumes,[résumé]);assert.equal(saved.document.selectedResumeId,résumé.id);
+    assert.equal(saved.document.tracked[fixtureJob.id].stage,'Applied');
+    await assert.rejects(()=>save({...saved.document,searches:{}},Number(saved.revision)),e=>e.code==='22023');
+    await assert.rejects(()=>save({...saved.document,searches:Array(21).fill(search)},Number(saved.revision)),e=>e.code==='22023');
+    const cleared=await save({...saved.document,searches:[]},Number(saved.revision));
+    assert.deepEqual(cleared.document.searches,[]);
+    await asUser('authenticated',bob);
+    assert.equal((await pg.query('select document from public.workspaces')).rows[0].document.searches.length,0);
   });
 }finally{await pg.close();}
 console.log(`\n${passed} database checks passed with SQLite and local PostgreSQL. No cloud credentials or paid requests used.`);

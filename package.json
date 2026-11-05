@@ -13,8 +13,8 @@
     "local:stop": "node scripts/launch-local.mjs --stop",
     "build:local": "node scripts/local-app.mjs build",
     "dev:local": "node scripts/local-app.mjs dev",
-    "test": "node scripts/verify.mjs && node scripts/verify-database.mjs",
-    "lint": "eslint app components/resume-panel.tsx components/workspace-provider.tsx lib"
+    "test": "node scripts/verify.mjs && node scripts/verify-database.mjs && node scripts/verify-search.mjs",
+    "lint": "eslint app components/resume-editor.tsx components/resume-library.tsx components/workspace-provider.tsx components/job-search.tsx lib"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",

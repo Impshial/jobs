@@ -25,7 +25,7 @@ To use cloud storage locally, configure the same Supabase project in `.env.local
 ## Configure Supabase and Vercel
 
 1. Create or select a Supabase project. Review the plan before creating paid resources.
-2. Run `supabase/migrations/202611040001_workspaces.sql` in its SQL editor, or apply through your normal migration workflow. It creates the workspace table, row-level read access, and a save function. Anonymous access and direct client table writes are denied. Saves derive ownership from the authenticated JWT and check revisions atomically. The elevated helper lives in `nextmove_private`; keep that schema out of the Data API's exposed schemas. The public entry point runs with the caller's privileges.
+2. Apply all SQL files in `supabase/migrations` in filename order through the SQL editor or your normal migration workflow. They create the workspace table, row-level read access, and a save function. Anonymous access and direct client table writes are denied. Saves derive ownership from the authenticated JWT and check revisions atomically. The elevated helper lives in `nextmove_private`; keep that schema out of the Data API's exposed schemas. The public entry point runs with the caller's privileges.
 3. In **Authentication → Users**, add your email/password user and confirm its email. Disable public sign-ups for a personal app. The interface provides sign-in and password reset, without public registration.
 4. In Authentication URL configuration, set Site URL to your Vercel app address. Allow that address and any local address you use (such as `http://127.0.0.1:5187`) for password reset redirects. Configure email delivery if the project's built-in email service cannot send to your address.
 5. Add these build-time variables to Vercel and, optionally, `.env.local`:
@@ -45,9 +45,27 @@ If data is on another address or browser, export it there and import the JSON af
 
 Sources: [Supabase row-level security](https://supabase.com/docs/guides/database/postgres/row-level-security), [Next.js setup](https://supabase.com/docs/guides/getting-started/quickstarts/nextjs).
 
+## Search job boards with your résumé
+
+Use the Search bar at the top from any page. Select a saved résumé beside the search field. Leave it blank to find matches for the skills and target roles in your reviewed résumé, or enter a role, skill, or location to narrow results. Comma-separated phrases are alternatives. Other checklist filters still apply; the explicit search replaces the checklist keyword field.
+
+My Searches in the left sidebar stores each search and up to 40 matching jobs. Open a result to review the original listing or add it to your shortlist. Existing tracking and Applied statuses are retained. Run again updates that saved search using your current résumé and filters; removing a search keeps tracked jobs. Up to 20 searches can be stored, with an explicit message when the limit is reached.
+
+Searches always use the Remotive and Arbeitnow feeds, independently of the stored job catalogue. Feeds refresh up to every six hours. Remotive listings are delayed 24 hours; Arbeitnow focuses on Europe. Matching is based on résumé keywords, with the matching terms shown on each result. It is not an assessment of eligibility, and the feeds do not cover every job board. Résumé data is compared in the browser and is not sent to the boards. No OpenAI key is needed for this search.
+
+Saved searches sync with the workspace and are included in backups. Apply all SQL files in `supabase/migrations` in filename order before deploying; the saved-search migration preserves history when an older browser tab saves a workspace without the new field.
+
+Sources: [Remotive API](https://github.com/remotive-com/remote-jobs-api), [Arbeitnow API](https://www.arbeitnow.com/blog/job-board-api).
+
+## Résumé library and saved jobs
+
+My Resumes supports up to 20 named profiles. Add or edit skills, target titles, experience level, and summary, or fill them from a file. The current single résumé is migrated to the first library entry without losing any profile details. Select a résumé in the top search bar; saved search snapshots show which résumé was used. Run again uses the current selection.
+
+Résumé selection never changes stored-job filtering, sorting, application details, or tracking. Saved Jobs contains all imported and bookmarked jobs, with its own text search and status selector. The homepage focuses on job-board searches; progress counters and stored listings have moved off it. The interface uses a dark theme. Import controls are hidden; existing data and backup exports remain available.
+
 ## Import jobs
 
-Click **Import jobs**, choose a Nextmove JSON file, review its counts, and select **Replace jobs and import**. Jobs and supplied statuses replace the catalogue and tracking. Profile, filters, résumé, and the device key are retained. Wait until database status says saved before closing. Later visits and other signed-in devices use the imported catalogue.
+Import controls are currently hidden. The existing import format and migration tools are retained for data recovery. When the import flow is available, choose a Nextmove JSON file, review its counts, and select **Replace jobs and import**. Jobs and supplied statuses replace the catalogue and tracking. Profile, filters, résumé, and the device key are retained. Wait until database status says saved before closing. Later visits and other signed-in devices use the imported catalogue.
 
 Convert a workbook with Python and openpyxl:
 
@@ -60,11 +78,11 @@ Job shortlist, Data entry, and Not shortlisted are supported. Pay units, conditi
 
 Output goes to `.local-runtime/imported-jobs.json`. An empty local database offers it as a first-run import. It is never automatically reapplied after migration, so later changes survive refresh/restart. Import again explicitly to replace jobs. Use the Worksheet selector for Data Entry.
 
-Full backup import replaces jobs, filters, and profile; new backups also contain the reviewed résumé profile. Private imports, backups, credentials, and résumés stay out of the public repository.
+Full backup import replaces jobs, filters, and profile; new backups also contain the résumé library, selection, and saved searches. Private imports, backups, credentials, and résumés stay out of the public repository.
 
 ## AI, applications, and limits
 
-Enter your OpenAI key in My checklist. Résumé analysis and ranking call OpenAI through this app only when clicked, using `store:false`. Charges are separate. Application code does not retain original uploads. Review extracted facts before use. Ranking compares up to 40 jobs.
+In My Resumes, upload a résumé and supply your OpenAI API key to extract its profile, or enter a profile manually without an API key. Analysis calls OpenAI only when clicked, using `store:false`; API charges apply. Review and edit extracted facts before saving. The app retains named profiles, not original files.
 
 The app prepares editable application notes and tracks status. Submission happens on the employer's website. There is no unattended application or background worker. Follow-up dates do not send reminders.
 
