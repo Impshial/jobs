@@ -46,11 +46,12 @@ check('Searches survive backup roundtrips without changing Applied statuses',()=
   const {searches,...legacy}=base;assert.deepEqual(parseWorkspace(legacy).searches,[]);
   assert.deepEqual(applyJobImport(next,{revision:'new',sourceName:'catalogue',importedAt:'2026-11-05',jobs:[fixture],tracked:base.tracked},true).searches,[search]);
 });
-check('Reruns update one saved search; history limits never silently discard searches',()=>{
+check('Each search adds a new record without overwriting history or silently discarding entries',()=>{
   const history=Array.from({length:20},(_,i)=>({...search,id:String(i)}));
   assert.throws(()=>saveSearch(history,search),/20 saved searches/);
-  const next=saveSearch(history,{...search,id:'10',query:'SQL Server'});
-  assert.equal(next.length,20);assert.equal(next[0].query,'SQL Server');assert.equal(new Set(next.map(row=>row.id)).size,20);
+  assert.throws(()=>saveSearch(history,{...search,id:'10',query:'SQL Server'}),/already recorded/);
+  const next=saveSearch(history.slice(0,19),search);
+  assert.equal(next.length,20);assert.deepEqual(next[0],search);assert.deepEqual(next.slice(1),history.slice(0,19));
 });
 check('Malformed saved-search backups are rejected',()=>{
   assert.throws(()=>parseWorkspace({...emptyWorkspace(),searches:[{...search,results:[{...search.results[0],job:{...fixture,url:'javascript:alert(1)'}}]}]}));

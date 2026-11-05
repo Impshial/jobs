@@ -47,9 +47,9 @@ Sources: [Supabase row-level security](https://supabase.com/docs/guides/database
 
 ## Search job boards with your résumé
 
-Use the Search bar at the top from any page. Select a saved résumé beside the search field. Leave it blank to find matches for the skills and target roles in your reviewed résumé, or enter a role, skill, or location to narrow results. Comma-separated phrases are alternatives. Other checklist filters still apply; the explicit search replaces the checklist keyword field.
+Open Job Search in the sidebar to use its search form. Select a saved résumé beside the search field. Leave it blank to find matches for the skills and target roles in your reviewed résumé, or enter a role, skill, or location to narrow results. Comma-separated phrases are alternatives. Other checklist filters still apply; the explicit search replaces the checklist keyword field.
 
-My Searches in the left sidebar stores each search and up to 40 matching jobs. Open a result to review the original listing or add it to your shortlist. Existing tracking and Applied statuses are retained. Run again updates that saved search using your current résumé and filters; removing a search keeps tracked jobs. Up to 20 searches can be stored, with an explicit message when the limit is reached.
+Click the Job Search button to run a new search. My Searches in the left sidebar is a history-only list of completed searches and up to 40 matching jobs per entry. Opening the history page or an entry never runs a search. Open a result to review the original listing or add it to your shortlist. Existing tracking and Applied statuses are retained. Each new search adds a separate dated record. History entries retain their original results; removing a search keeps tracked jobs. Up to 20 searches can be stored, with an explicit message when the limit is reached.
 
 Searches always use the Remotive and Arbeitnow feeds, independently of the stored job catalogue. Feeds refresh up to every six hours. Remotive listings are delayed 24 hours; Arbeitnow focuses on Europe. Matching is based on résumé keywords, with the matching terms shown on each result. It is not an assessment of eligibility, and the feeds do not cover every job board. Résumé data is compared in the browser and is not sent to the boards. No OpenAI key is needed for this search.
 
@@ -59,7 +59,7 @@ Sources: [Remotive API](https://github.com/remotive-com/remote-jobs-api), [Arbei
 
 ## Résumé library and saved jobs
 
-My Resumes supports up to 20 named profiles. Add or edit skills, target titles, experience level, and summary, or fill them from a file. The current single résumé is migrated to the first library entry without losing any profile details. Select a résumé in the top search bar; saved search snapshots show which résumé was used. Run again uses the current selection.
+My Resumes supports up to 20 named profiles. Add or edit skills, target titles, experience level, and summary, or fill them from a file. The current single résumé is migrated to the first library entry without losing any profile details. Select a résumé in the top search bar; saved search snapshots show which résumé was used. Only the Job Search page can start a search; its button uses the current selection.
 
 Résumé selection never changes stored-job filtering, sorting, application details, or tracking. Saved Jobs contains all imported and bookmarked jobs, with its own text search and status selector. The homepage focuses on job-board searches; progress counters and stored listings have moved off it. The interface uses a dark theme. Import controls are hidden; existing data and backup exports remain available.
 

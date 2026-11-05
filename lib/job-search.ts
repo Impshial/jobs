@@ -64,6 +64,7 @@ export function searchJobFeed(jobs:Job[],resume:Resume,query:string,preferences:
 }
 
 export function saveSearch(searches:SavedSearch[],search:SavedSearch) {
-  if(!searches.some(previous=>previous.id===search.id)&&searches.length>=MAX_SEARCHES)throw Error(`You have ${MAX_SEARCHES} saved searches. Remove one before starting another.`);
-  return [search,...searches.filter(previous=>previous.id!==search.id)];
+  if(searches.some(previous=>previous.id===search.id))throw Error('This search is already recorded.');
+  if(searches.length>=MAX_SEARCHES)throw Error(`You have ${MAX_SEARCHES} saved searches. Remove one before starting another.`);
+  return [search,...searches];
 }
