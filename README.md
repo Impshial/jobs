@@ -25,7 +25,7 @@ To use cloud storage locally, configure the same Supabase project in `.env.local
 ## Configure Supabase and Vercel
 
 1. Create or select a Supabase project. Review the plan before creating paid resources.
-2. Run `supabase/migrations/202611040001_workspaces.sql` in its SQL editor, or apply through your normal migration workflow. It creates the workspace table, row-level read access, and a save function. Anonymous access and direct client table writes are denied. Saves derive ownership from the authenticated JWT and check revisions atomically.
+2. Run `supabase/migrations/202611040001_workspaces.sql` in its SQL editor, or apply through your normal migration workflow. It creates the workspace table, row-level read access, and a save function. Anonymous access and direct client table writes are denied. Saves derive ownership from the authenticated JWT and check revisions atomically. The elevated helper lives in `nextmove_private`; keep that schema out of the Data API's exposed schemas. The public entry point runs with the caller's privileges.
 3. In **Authentication → Users**, add your email/password user and confirm its email. Disable public sign-ups for a personal app. The interface provides sign-in and password reset, without public registration.
 4. In Authentication URL configuration, set Site URL to your Vercel app address. Allow that address and any local address you use (such as `http://127.0.0.1:5187`) for password reset redirects. Configure email delivery if the project's built-in email service cannot send to your address.
 5. Add these build-time variables to Vercel and, optionally, `.env.local`:

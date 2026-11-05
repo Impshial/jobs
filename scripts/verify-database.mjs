@@ -96,10 +96,15 @@ const bob='22222222-2222-4222-8222-222222222222';
 try{
   await pg.exec(`create role anon; create role authenticated; create schema auth; create table auth.users(id uuid primary key); insert into auth.users values('${alice}'),('${bob}'); create function auth.uid() returns uuid language sql stable as $$ select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid $$; grant usage on schema auth to anon,authenticated; grant execute on function auth.uid() to anon,authenticated;`);
   await pg.exec(await readFile('supabase/migrations/202611040001_workspaces.sql','utf8'));
+  await check('Only the private helper has elevated privileges',async()=>{
+    const rows=(await pg.query("select n.nspname, p.prosecdef from pg_proc p join pg_namespace n on n.oid=p.pronamespace where p.proname='save_workspace' order by n.nspname")).rows;
+    assert.deepEqual(rows,[{nspname:'nextmove_private',prosecdef:true},{nspname:'public',prosecdef:false}]);
+  });
   const asUser=async(role,id)=>{await pg.exec(`reset role; set role ${role};`);await pg.query("select set_config('request.jwt.claim.sub',$1,false)",[id]);};
   const save=async(document,revision)=>(await pg.query('select * from public.save_workspace($1::jsonb,$2::bigint)',[JSON.stringify(document),revision])).rows[0];
   await check('Postgres denies anonymous reads and writes',async()=>{
     await asUser('anon','');await assert.rejects(()=>pg.query('select * from public.workspaces'),e=>e.code==='42501');await assert.rejects(()=>save(base,0),e=>e.code==='42501');
+    await assert.rejects(()=>pg.query('select * from nextmove_private.save_workspace($1::jsonb,0)',[JSON.stringify(base)]),e=>e.code==='42501');
   });
   await check('Authenticated calls without a verified user are rejected',async()=>{
     await asUser('authenticated','');await assert.rejects(()=>save(base,0),e=>e.code==='42501');

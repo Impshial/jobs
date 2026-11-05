@@ -13,7 +13,11 @@ create policy "Read own workspace" on public.workspaces
 
 -- Ownership comes only from the verified JWT. The client cannot supply an owner.
 -- Writes are atomic compare-and-swap; stale devices cannot silently overwrite data.
-create function public.save_workspace(workspace jsonb, expected_revision bigint)
+-- Keep elevated code outside the Data API's exposed public schema.
+create schema if not exists nextmove_private;
+revoke all on schema nextmove_private from public, anon, authenticated;
+grant usage on schema nextmove_private to authenticated;
+create function nextmove_private.save_workspace(workspace jsonb, expected_revision bigint)
 returns table(document jsonb, revision bigint, updated_at timestamptz)
 language plpgsql security definer set search_path = '' as $$
 declare owner_id uuid := auth.uid();
@@ -43,6 +47,15 @@ begin
   end if;
   if not found then raise exception 'Workspace changed on another device' using errcode = '40001'; end if;
 end;
+$$;
+revoke all on function nextmove_private.save_workspace(jsonb,bigint) from public, anon;
+grant execute on function nextmove_private.save_workspace(jsonb,bigint) to authenticated;
+
+-- This exposed entry point has no elevated privileges of its own.
+create function public.save_workspace(workspace jsonb, expected_revision bigint)
+returns table(document jsonb, revision bigint, updated_at timestamptz)
+language sql security invoker set search_path = '' as $$
+  select * from nextmove_private.save_workspace(workspace, expected_revision);
 $$;
 revoke all on function public.save_workspace(jsonb,bigint) from public, anon;
 grant execute on function public.save_workspace(jsonb,bigint) to authenticated;
