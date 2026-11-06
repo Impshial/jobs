@@ -1,6 +1,7 @@
 import {z} from 'zod';
 import {blankProfile, defaults, safeUrl, stages} from './jobs';
 import {ResumeSchema} from './resume';
+import {externalBoards} from './job-boards';
 
 export const LEGACY_WORKSPACE_KEY = 'nextmove.workspace.v1';
 export const JobSchema = z.object({
@@ -15,6 +16,7 @@ const PreferencesSchema=z.object({roles:z.array(z.string()),styles:z.array(z.str
 const SavedSearchSchema=z.object({
   id:z.string().min(1),query:z.string().max(200),createdAt:z.string().datetime(),fetchedAt:z.string().datetime(),
   resumeId:z.string().optional(),resumeName:z.string().max(100).optional(),
+  externalSearch:z.object({board:z.enum(externalBoards),query:z.string().trim().min(1).max(200),location:z.string().max(200)}).optional(),
   terms:z.array(z.string().max(100)).max(60),sources:z.array(z.string()).max(10),warnings:z.array(z.string()).max(10),
   total:z.number().int().nonnegative(),preferences:PreferencesSchema,
   results:z.array(z.object({job:JobSchema,score:z.number().nonnegative(),matchedTerms:z.array(z.string()).max(8)})).max(40),

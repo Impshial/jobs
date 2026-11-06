@@ -3,8 +3,8 @@ import assert from 'node:assert/strict';
 import {mkdir} from 'node:fs/promises';
 
 await mkdir('.local-runtime/checks',{recursive:true});
-await build({stdin:{contents:"export * from './lib/job-search'; export * from './lib/workspace'; export * from './lib/workspace-import'; export * from './lib/jobs';",resolveDir:process.cwd(),loader:'ts'},outfile:'.local-runtime/checks/search.mjs',bundle:true,platform:'node',format:'esm',logLevel:'silent'});
-const {searchJobFeed,saveSearch,emptyWorkspace,parseWorkspace,applyJobImport,defaults}=await import('../.local-runtime/checks/search.mjs');
+await build({stdin:{contents:"export * from './lib/job-search'; export * from './lib/job-boards'; export * from './lib/workspace'; export * from './lib/workspace-import'; export * from './lib/jobs';",resolveDir:process.cwd(),loader:'ts'},outfile:'.local-runtime/checks/search.mjs',bundle:true,platform:'node',format:'esm',logLevel:'silent'});
+const {searchJobFeed,saveSearch,emptyWorkspace,parseWorkspace,applyJobImport,defaults,prepareBoardSearch,boardSearchUrl,externalBoards}=await import('../.local-runtime/checks/search.mjs');
 const resume={name:'',email:'',website:'',summary:'',skills:['C#','SQL Server administration (2000-2025)','HTML/CSS/JavaScript/jQuery','ASP.NET','OutSystems full-stack development'],roles:['Engineering'],searchTerms:['Full-Stack Developer','SQL Server DBA'],experienceLevel:'Senior',notes:''};
 const job=(id,title,description,extra={})=>({id,title,company:'Example '+id,location:'United States',category:'Engineering',type:'Full-time',salary:'',description,url:`https://example.com/${id}`,source:'Test board',posted:'2026-11-05T00:00:00.000Z',remote:true,tags:[],...extra});
 let passed=0;
@@ -73,5 +73,39 @@ check('Multiple résumé selections survive backups and do not change stored-job
  assert.deepEqual(searchJobFeed(choices,restored.resumes.find(row=>row.id===restored.selectedResumeId).profile,'',defaults).results.map(row=>row.job.id),['finance']);
  const removed=parseWorkspace({...library,resumes:library.resumes.filter(row=>row.id!=='Finance')});assert.equal(removed.selectedResumeId,'Engineering');
  assert.throws(()=>parseWorkspace({...library,resumes:[library.resumes[0],library.resumes[0]]}));
+});
+check('External boards use the selected résumé role, or explicit keywords, without contact details',()=>{
+ const privateResume={...resume,name:'Private Name',email:'private@example.test',summary:'Private summary'};
+ for(const board of externalBoards){
+  assert.deepEqual(prepareBoardSearch(board,privateResume,'',defaults),{board,query:'Full-Stack Developer',location:''});
+  assert.equal(prepareBoardSearch(board,privateResume,' C# & .NET ',defaults).query,'C# & .NET');
+ }
+ const other={...resume,searchTerms:['Accountant'],skills:['Accounting']};
+ assert.equal(prepareBoardSearch('Indeed',other,'',defaults).query,'Accountant');
+ assert.equal(prepareBoardSearch('Monster',{...resume,searchTerms:[]},'',defaults).query,'C#');
+ assert.throws(()=>prepareBoardSearch('Monster',{...resume,searchTerms:[],skills:[]},'',defaults),/Enter a search/);
+});
+check('Board URLs encode special characters and preserve the displayed location',()=>{
+ const hosts={Monster:'www.monster.com',LinkedIn:'www.linkedin.com',Indeed:'www.indeed.com'};
+ for(const board of externalBoards){
+  const prepared=prepareBoardSearch(board,resume,'C# & C++ / .NET',{...defaults,locations:['United States','Canada']});
+  assert.equal(prepared.location,'United States');
+  const url=new URL(boardSearchUrl(prepared));assert.equal(url.hostname,hosts[board]);assert.equal(url.protocol,'https:');assert.equal(url.hash,'');
+  assert.equal(url.searchParams.get(board==='LinkedIn'?'keywords':'q'),'C# & C++ / .NET');
+  assert.equal(url.searchParams.get(board==='Monster'?'where':board==='LinkedIn'?'location':'l'),'United States');
+  const remote=prepareBoardSearch(board,resume,'C#',{...defaults,styles:['Remote'],locations:['United States']});
+  assert.equal(remote.location,'Remote');
+  const remoteUrl=new URL(boardSearchUrl(remote));
+  assert.equal(remoteUrl.searchParams.get(board==='Monster'?'where':board==='LinkedIn'?'f_WT':'l'),board==='LinkedIn'?'2':'Remote');
+ }
+});
+check('External search records roundtrip without creating fake jobs or changing existing history/statuses',()=>{
+ const base=parseWorkspace({...emptyWorkspace(),searches:[search],tracked:{[fixture.id]:{job:fixture,stage:'Applied',savedAt:'2026-11-01',notes:'Already submitted',followUp:''}}});
+ const external={...search,id:'external-search',sources:['Monster'],terms:[],total:0,results:[],externalSearch:prepareBoardSearch('Monster',resume,'C#',defaults)};
+ const next=parseWorkspace({...base,searches:saveSearch(base.searches,external)});
+ const restored=parseWorkspace(JSON.parse(JSON.stringify(next)));
+ assert.deepEqual(restored.searches,[external,search]);assert.deepEqual(restored.tracked,base.tracked);
+ assert.deepEqual(parseWorkspace(restored),restored);
+ assert.throws(()=>parseWorkspace({...base,searches:[{...external,externalSearch:{...external.externalSearch,board:'Untrusted board'}}]}));
 });
 console.log(`\n${passed} search checks passed.`);

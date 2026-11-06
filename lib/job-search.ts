@@ -1,5 +1,6 @@
 import {matches, type Job, type Preferences} from './jobs';
 import type {Resume} from './resume';
+import type {ExternalSearch} from './job-boards';
 
 export const MAX_SEARCHES = 20;
 export const MAX_SEARCH_RESULTS = 40;
@@ -7,6 +8,7 @@ export type SearchResult = {job:Job; score:number; matchedTerms:string[]};
 export type SavedSearch = {
   id:string; query:string; createdAt:string; fetchedAt:string;
   resumeId?:string; resumeName?:string;
+  externalSearch?:ExternalSearch;
   terms:string[]; sources:string[]; warnings:string[]; total:number;
   preferences:Preferences; results:SearchResult[];
 };
